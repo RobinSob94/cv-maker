@@ -52,8 +52,34 @@ jobs :
         needs: build
         name: 'Deploy to Netlify'
         steps:
+          - uses: actions/checkout@v4
+          - name: Setup pnpm
+            uses: pnpm/action-setup@v2.4.0
+            with:
+              version: 8
+              run_install: false
+
+          - name: Get pnpm store directory
+            shell: bash
+            run: |
+              echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+          - uses: actions/cache@v3
+            name: Setup pnpm cache
+            with:
+              path: ${{ env.STORE_PATH }}
+              key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+              restore-keys: |
+                ${{ runner.os }}-pnpm-store-
+
+          - name: Install dependencies
+            run: pnpm install
+
           - uses: jsmrcaga/action-netlify-deploy@v2.0.0
             with:
-              NETLIFY_AUTH_TOKEN: ${{ secrets.MY_TOKEN_SECRET }}
-              NETLIFY_DEPLOY_TO_PROD: true
+              NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+              NETLIFY_DEPLOY_TO_PROD: ${{ secrets.NETLIFY_SITE_ID }}
+              build_command: pnpm run build
+              install_command: pnpm install
+
 
