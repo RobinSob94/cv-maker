@@ -12,20 +12,18 @@ jobs :
             - name: Show node version
               run: echo node -v
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v2.4.0
-              with:
-                version: 8
-                run_install: false
+            # - name: Setup pnpm
+            #   uses: pnpm/action-setup@v2.4.0
+            #   with:
+            #     version: 8
+            #     run_install: false
 
             - name: Install Bun
               uses: oven-sh/setup-bun@v1
-            - run: bun install
-            - run: bun index.ts
-            - run: bun run build
+
 
             - name: Install dependencies
-              run: pnpm install
+              run: bun install
                 
             - name: Build the app
-              run: pnpm run build
+              run: bun run build
