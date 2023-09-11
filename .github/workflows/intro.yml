@@ -1,7 +1,8 @@
 name: Install and Build
 
 env:
-  NAME: Robin
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
 on:
     push:
@@ -10,40 +11,79 @@ jobs :
     build:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
+          - uses: actions/checkout@v4
 
-            - run: FAMILY_NAME=doe echo "Hello ${{ env.NAME }} $FAMILY_NAME"
+          - name: Show node version
+            run: echo node -v
 
-            - name: Show node version
-              run: echo node -v
+          - name: Setup pnpm
+            uses: pnpm/action-setup@v2.4.0
+            with:
+              version: 8
+              run_install: false
 
-            - name: Setup pnpm
-              uses: pnpm/action-setup@v2.4.0
-              with:
-                version: 8
-                run_install: false
+          - name: Get pnpm store directory
+            shell: bash
+            run: |
+              echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
-            - name: Get pnpm store directory
-              shell: bash
-              run: |
-                echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+          - uses: actions/cache@v3
+            name: Setup pnpm cache
+            with:
+              path: ${{ env.STORE_PATH }}
+              key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+              restore-keys: |
+                ${{ runner.os }}-pnpm-store-
 
-            - uses: actions/cache@v3
-              name: Setup pnpm cache
-              with:
-                path: ${{ env.STORE_PATH }}
-                key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-                restore-keys: |
-                  ${{ runner.os }}-pnpm-store-
+          - name: Install dependencies
+            run: pnpm install
 
-            - name: Install dependencies
-              run: pnpm install
+          - name: Build the app
+            run: pnpm run build
+          
+          - name: Test the connection
+            run: |
+                  pnpm run preview &
+                  sleep 5
+                  curl -I http://localhost:4173
+ 
+    deploy:
+        runs-on: ubuntu-latest
+        needs: build
+        steps:
+          - uses: actions/checkout@v4
+          
+          - name: Setup pnpm
+            uses: pnpm/action-setup@v2.4.0
+            with:
+              version: 8
+              run_install: false
 
-            - name: Build the app
-              run: pnpm run build
-            
-            - name: Test the connection
-              run: |
-                    pnpm run preview &
-                    sleep 5
-                    curl -I http://localhost:4173
+          - name: Get pnpm store directory
+            shell: bash
+            run: |
+              echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+          - uses: actions/cache@v3
+            name: Setup pnpm cache
+            with:
+              path: ${{ env.STORE_PATH }}
+              key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+              restore-keys: |
+                ${{ runner.os }}-pnpm-store-
+
+          - name: Install dependencies
+            run: pnpm install
+
+          - name: Install Vercel CLI
+            run: npm install --global vercel@latest
+
+          - name: Pull Vercel Environment Information
+            run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+          - name: Build Project Artifacts
+            run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+          - name: Deploy Project Artifacts to Vercel
+            run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+
